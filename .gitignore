@@ -1,0 +1,31 @@
+# 开发环境
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+
+# 缓存
+__pycache__/
+*.py[cod]
+
+# 日志和数据库
+*.log
+*.sqlite
+
+# 本地配置文件
+config.py
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 测试相关
+.coverage
+htmlcov/
+.pytest_cache/
+
+# 示例配置模板（保留在版本库中）
+!config.example.py
