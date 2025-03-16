@@ -6,6 +6,7 @@ if __name__ == "__main__":
     strategy = FundingRateArbitrage(
         api_key=BYBIT_API_KEY,
         api_secret=BYBIT_API_SECRET,
+        max_position_value=100,
         demo=True,  # 模拟交易
     )
 

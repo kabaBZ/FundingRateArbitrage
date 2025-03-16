@@ -163,7 +163,7 @@ class FundingRateArbitrage:
         """
         # 检查是否已存在该交易对的仓位
         if position['symbol'] in self.positions:
-            print(f"跳过开仓 - 交易对: {position['symbol']} 已存在仓位,.P方向: {self.positions[position['symbol']]['futuresType']}, 数量: {self.positions[position['symbol']]['amount']}")
+            print(f"跳过开仓 - 交易对: {position['symbol']} 已存在仓位,.P方向: {self.positions[position['symbol']]['direction']}, 数量: {self.positions[position['symbol']]['amount']}")
             return
 
         try:
