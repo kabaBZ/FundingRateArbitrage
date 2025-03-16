@@ -1,7 +1,7 @@
 import requests
 from ArbitrageData.decrypt_utils import decrypt_response
 
-def get_interestArbitrage_data():
+def get_bybit_interestArbitrage_data():
     headers = {
         "accept": "application/json",
         "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
@@ -23,7 +23,7 @@ def get_interestArbitrage_data():
     }
     url = "https://capi.coinglass.com/api/fundingRate/arbitrage-list"
     params = {
-        "exchangeName": "all"
+        "exchangeName": "Bybit"
     }
     response = requests.get(url, headers=headers, params=params)
     decrypted_data = decrypt_response(response)

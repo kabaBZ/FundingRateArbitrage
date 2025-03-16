@@ -11,3 +11,8 @@ if __name__ == "__main__":
 
     # 运行策略
     strategy.run()
+    # import json
+    # from ArbitrageData.arbitrage_list import get_bybit_interestArbitrage_data
+    # arbitrage_list = get_bybit_interestArbitrage_data()
+    # with open("arbitrage_list.json", "w") as f:
+    #     json.dump(arbitrage_list, f)

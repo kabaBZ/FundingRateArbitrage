@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from pybit.unified_trading import HTTP
-from ArbitrageData.arbitrage_list import get_interestArbitrage_data
+from ArbitrageData.arbitrage_list import get_bybit_interestArbitrage_data
 
 # 资金费率套利策略类
 # 通过在合约和现货市场同时开立反向仓位，利用资金费率差异获取收益
@@ -67,7 +67,7 @@ class FundingRateArbitrage:
         # 杠杆利息成本
         interest_cost = self.margin_interest_rate * (holding_hours / 8)
         # 总收益 = 资金费率收益 - 手续费成本 - 杠杆利息成本
-        return funding_rate - fee_cost - interest_cost
+        return abs(funding_rate) - fee_cost - interest_cost
 
     def find_arbitrage_opportunities(self) -> List[Dict]:
         """寻找套利机会
@@ -89,7 +89,7 @@ class FundingRateArbitrage:
                 for instrument in linear_instruments.get('result', {}).get('list', []):
                     linear_symbols.add(instrument.get('symbol'))
 
-            # 获取所有可交易的现货交易对
+            # 获取所有可交易的杠杆交易对
             spot_symbols = set()
             spot_instruments = self.client.get_instruments_info(
                 category="spot",
@@ -97,13 +97,14 @@ class FundingRateArbitrage:
             )
             if spot_instruments.get('retCode') == 0:
                 for instrument in spot_instruments.get('result', {}).get('list', []):
-                    spot_symbols.add(instrument.get('symbol'))
+                    if instrument.get('marginTrading') != 'none':
+                        spot_symbols.add(instrument.get('symbol'))
 
             # 获取同时支持现货和合约交易的交易对
             available_symbols = linear_symbols.intersection(spot_symbols)
 
             # 获取所有交易对的资金费率数据
-            data = get_interestArbitrage_data()
+            data = get_bybit_interestArbitrage_data()
             # 计算持仓时间
             next_funding_time = self.get_next_funding_time()
             holding_hours = (next_funding_time - datetime.utcnow()).total_seconds() / 3600
@@ -132,12 +133,8 @@ class FundingRateArbitrage:
                     
                     # 如果预期收益率超过阈值，添加到套利机会列表
                     if abs(expected_profit) > self.min_funding_rate:
-                        opportunities.append({
-                            'symbol': symbol,
-                            'funding_rate': funding_rate,
-                            'expected_profit': expected_profit,
-                            'direction': 'long' if funding_rate > 0 else 'short'
-                        })
+                        item['expected_profit'] = expected_profit
+                        opportunities.append(item)
 
                 except Exception as e:
                     print(f"警告：处理交易对数据失败 - 交易对: {symbol}, 错误: {str(e)}")
@@ -150,7 +147,7 @@ class FundingRateArbitrage:
         # 按预期收益率绝对值降序排序
         return sorted(opportunities, key=lambda x: abs(x['expected_profit']), reverse=True)
 
-    def open_arbitrage_position(self, symbol: str, direction: str, amount: float):
+    def open_arbitrage_position(self, position: dict, amount: float):
         """开启套利仓位
         在合约和现货市场同时开立反向仓位，实现资金费率套利
         
@@ -165,10 +162,10 @@ class FundingRateArbitrage:
             3. 开仓成功后会记录持仓信息到self.positions中
         """
         # 检查是否已存在该交易对的仓位
-        if symbol in self.positions:
-            print(f"跳过开仓 - 交易对: {symbol} 已存在仓位，方向: {self.positions[symbol]['direction']}, 数量: {self.positions[symbol]['amount']}")
+        if position['symbol'] in self.positions:
+            print(f"跳过开仓 - 交易对: {position['symbol']} 已存在仓位,.P方向: {self.positions[position['symbol']]['futuresType']}, 数量: {self.positions[position['symbol']]['amount']}")
             return
-            
+
         try:
             # 设置更大的接收窗口，处理时间同步问题
             self.client.recv_window = 60000
@@ -176,7 +173,7 @@ class FundingRateArbitrage:
             # 获取交易对精度信息
             instrument_info = self.client.get_instruments_info(
                 category="linear",
-                symbol=symbol
+                symbol=position['symbol']
             )
             if instrument_info.get('retCode') != 0:
                 raise Exception(f"获取交易对信息失败: {instrument_info.get('retMsg')}")
@@ -193,7 +190,7 @@ class FundingRateArbitrage:
             # 获取当前市场价格
             ticker_response = self.client.get_tickers(
                 category="spot",
-                symbol=symbol
+                symbol=position['symbol']
             )
             if ticker_response.get('retCode') != 0:
                 raise Exception(f"获取市场价格失败: {ticker_response.get('retMsg')}")
@@ -203,13 +200,13 @@ class FundingRateArbitrage:
             # 根据精度处理下单数量，并确保不小于最小交易数量
             # 由于使用2倍杠杆，实际可用资金翻倍
             max_amount_by_balance = (current_balance * 2) / current_price  # 考虑价格计算最大可开仓数量
-            adjusted_amount = max(min_qty, round(min(amount, max_amount_by_balance) / qty_step) * qty_step)
+            adjusted_amount = max(min_qty, round(min(amount, max_amount_by_balance) / qty_step * qty_step))
             
             # 设置合约端杠杆
             try:
                 self.client.set_leverage(
                     category="linear",
-                    symbol=symbol,
+                    symbol=position['symbol'],
                     buyLeverage="2",
                     sellLeverage="2"
                 )
@@ -221,16 +218,22 @@ class FundingRateArbitrage:
             # 设置现货端杠杆
             self.client.set_leverage(
                 category="spot",
-                symbol=symbol,
+                symbol=position['symbol'],
                 buyLeverage="2",
                 sellLeverage="2"
             )
+
+            # 设置现货杠杆资产抵押
+            self.client.set_collateral_coin(
+                coin=position['currency'],
+                collateralSwitch="ON"
+            )
             
             # 合约端开仓
-            side = 'Buy' if direction == 'long' else 'Sell'
+            side = 'Buy' if position['futuresType'] == 'long' else 'Sell'
             self.client.place_order(
                 category="linear",
-                symbol=symbol,
+                symbol=position['symbol'],
                 side=side,
                 order_type="Market",
                 qty=str(adjusted_amount),  # 转换为字符串，避免精度问题
@@ -238,30 +241,32 @@ class FundingRateArbitrage:
             )
 
             # 现货端开反向仓位（使用相同的币数量）
-            spot_side = 'Sell' if direction == 'long' else 'Buy'
+            spot_side = 'Sell' if position['spotType'] == 'sell' else 'Buy'
             # 计算现货交易的USDT价值
             spot_value = adjusted_amount * current_price
             self.client.place_order(
                 category="spot",
-                symbol=symbol,
+                symbol=position['symbol'],
                 side=spot_side,
                 order_type="Market",
-                qty=str(round(spot_value, 6))  # 现货交易使用USDT价值
+                isLeverage=1,
+                qty=str(adjusted_amount),  # 现货交易使用USDT价值
+                marketUnit="baseCoin"
             )
 
             # 记录持仓信息
-            self.positions[symbol] = {
-                'direction': direction,
+            self.positions[position['symbol']] = {
+                'direction': position['futuresType'],
                 'amount': adjusted_amount,
                 'spot_amount': round(spot_value, 6),
                 'open_time': datetime.utcnow()
             }
 
         except Exception as e:
-            error_msg = f"开仓失败 - 币种: {symbol}, 方向: {direction}, 数量: {adjusted_amount}, 错误: {str(e)}"
+            error_msg = f"开仓失败 - 币种: {position['symbol']}, .P方向: {position['futuresType']}, 数量: {adjusted_amount}, 错误: {str(e)}"
             print(error_msg)
             # 如果其中一个订单失败，需要关闭另一个订单，避免单边持仓
-            self.close_arbitrage_position(symbol)
+            self.close_arbitrage_position(position['symbol'])
 
     def get_usdt_balance(self) -> float:
         """获取USDT余额
@@ -375,21 +380,20 @@ class FundingRateArbitrage:
                         # 计算开仓数量，考虑最大持仓价值和账户余额限制
                         amount = min(
                             self.max_position_value / symbol_price,  # 最大持仓价值限制
-                            float(self.get_usdt_balance()) / symbol_price / 2  # 确保资金足够开双向仓位
+                            round(float(self.get_usdt_balance(), ) / symbol_price / 2, 6) # 确保资金足够开双向仓位
                         )
 
                         # 如果计算出的开仓数量大于0，执行开仓
                         if amount > 0:
                             self.open_arbitrage_position(
-                                opp['symbol'],
-                                opp['direction'],
+                                opp,
                                 amount
                             )
 
                 # 在资金费率结算后1分钟关闭所有仓位
                 elif time_to_funding < -60:  # 结算后1分钟
-                    for symbol in list(self.positions.keys()):
-                        self.close_arbitrage_position(symbol)
+                    for opp['symbol'] in list(self.positions.keys()):
+                        self.close_arbitrage_position(opp['symbol'])
 
                 time.sleep(60)  # 每分钟检查一次
 
