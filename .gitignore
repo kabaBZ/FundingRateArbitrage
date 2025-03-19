@@ -12,6 +12,7 @@ __pycache__/
 *.py[cod]
 
 # 日志和数据库
+logs/
 *.log
 *.sqlite
 
