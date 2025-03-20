@@ -3,6 +3,7 @@ from abc import abstractmethod
 from datetime import datetime, timedelta
 from typing import Optional
 from loguru import logger
+from Clients.bybit_client import BybitTimeRecordClient
 
 
 class SingleDirectionTrade(object):
@@ -23,6 +24,7 @@ class SingleDirectionTrade(object):
         self.symbol = symbol
         self.timingPoints = timingPoints
         self.balance_ratio = balance_ratio
+        self.client: Optional[BybitTimeRecordClient] = None
 
     def get_trade_time(
         self, server_time, promising_arbitrage_time
@@ -45,7 +47,9 @@ class SingleDirectionTrade(object):
             if not server_time:
                 time.sleep(0.3)
                 continue
-            if (target_time - server_time).total_seconds() <= 0.2:
+            if (
+                target_time - server_time
+            ).total_seconds() <= self.client.get_average_response_time() / 1000000:
                 print(f"等待结束，服务器时间：{server_time}")
                 break
             # 计算等待时间
