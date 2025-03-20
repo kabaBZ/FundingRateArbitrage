@@ -230,7 +230,7 @@ class BybitSingleDirectionTrade(SingleDirectionTrade):
         ) * Decimal(self.balance_ratio)
         # 预留3%的余额作为缓冲，避免因手续费和滑点导致开仓失败
         buffer_ratio = Decimal("0.97")
-        amount = current_balance * buffer_ratio  # 合约和现货杠杆的保证金金额
+        amount = current_balance * buffer_ratio / 10  # 合约和现货杠杆的保证金金额
         self.logger.info(f"本次交易保证金金额:{amount}")
 
         # 设置合约端杠杆
