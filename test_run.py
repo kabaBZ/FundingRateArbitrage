@@ -26,6 +26,7 @@ if __name__ == "__main__":
         # "RSS3USDT",
         # "DYMUSDT",
         # "VANAUSDT",
+        "AUCTIONUSDT"
     ]  #
     threads = []
     for symbol in symbols:
