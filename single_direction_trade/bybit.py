@@ -226,9 +226,7 @@ class BybitSingleDirectionTrade(SingleDirectionTrade):
         ) * Decimal(self.balance_ratio)
         # 预留3%的余额作为缓冲，避免因手续费和滑点导致开仓失败
         buffer_ratio = Decimal("0.97")
-        amount = (
-            current_balance * buffer_ratio / 2
-        )  # 合约和现货杠杆的保证金金额，除以2实现对冲
+        amount = current_balance * buffer_ratio   # 合约和现货杠杆的保证金金额
 
         # 设置合约端杠杆
         try:
@@ -256,5 +254,13 @@ class BybitSingleDirectionTrade(SingleDirectionTrade):
 
 
 def run(*args, **kwargs) -> None:
+    """
+    symbol: str,
+    timingPoints: Optional[tuple] = None,
+    balance_ratio=1,
+    demo: bool = True,
+    debug_mode: bool = False,
+    logger=logger,
+    """
     client = BybitSingleDirectionTrade(*args, **kwargs)
     client.workflow()
