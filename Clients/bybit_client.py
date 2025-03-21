@@ -42,6 +42,18 @@ class BybitTimeRecordClient(HTTP):
         instruments_response = instruments_response[0]
         return instruments_response
 
+    def get_order_history(self, **kwargs):
+        """获取订单历史"""
+        if not self.record_request_time:
+            return super().get_order_history(**kwargs)
+        order_history_response = super().get_order_history(**kwargs)
+        self.logger.info(
+            f"get_order_history请求耗时：{order_history_response[1].microseconds}"
+        )
+        self.response_time_records.append(order_history_response[1].microseconds)
+        order_history_response = order_history_response[0]
+        return order_history_response
+
     def get_wallet_balance(self, *args, **kwargs):
         """获取钱包余额"""
         if not self.record_request_time:

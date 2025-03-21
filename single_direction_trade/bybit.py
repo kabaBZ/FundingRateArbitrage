@@ -149,30 +149,36 @@ class BybitSingleDirectionTrade(SingleDirectionTrade):
         else:
             self.logger.info(f"{self.symbol}开仓时间早于预期结算时间, 预期套利成功")
 
-        # 等待平仓时间
-        self.logger.info(f"等待平仓时间: {target_close_time}")
-        self.wait_until(target_close_time)
+        # open_order_info = self.client.get_order_history(
+        #     order_id=open_order["result"]["orderId"]
+        # )
+        # avgPrice = Decimal(open_order_info["result"]["list"][0]["avgPrice"])
 
-        # 平仓
-        close_order = self.client.place_order(
-            category="linear",
-            symbol=self.symbol,
-            side="Sell",
-            order_type="Market",
-            qty=finalQTY,
-            reduce_only=True,
-        )
-        self.logger.info(
-            f"{self.symbol}平仓成功: {close_order}, 订单时间：{datetime.fromtimestamp(close_order['time'] / 1000)}"
-        )
-        if promising_arbitrage_time > datetime.fromtimestamp(
-            close_order["time"] / 1000
-        ):
-            self.logger.info(
-                f"{self.symbol}平仓时间早于预期结算时间, 可能是网络延迟导致的, 预期套利失败"
-            )
-        else:
-            self.logger.info(f"{self.symbol}平仓时间晚于预期结算时间, 预期套利成功")
+        # # 等待平仓时间
+        # self.logger.info(f"等待平仓时间: {target_close_time}")
+        # self.wait_until(target_close_time)
+
+        # # 平仓
+        # close_order = self.client.place_order(
+        #     category="linear",
+        #     symbol=self.symbol,
+        #     side="Sell",
+        #     order_type="Limit",
+        #     qty=finalQTY,
+        #     reduce_only=True,
+        #     price=avgPrice,
+        # )
+        # self.logger.info(
+        #     f"{self.symbol}平仓成功: {close_order}, 订单时间：{datetime.fromtimestamp(close_order['time'] / 1000)}"
+        # )
+        # if promising_arbitrage_time > datetime.fromtimestamp(
+        #     close_order["time"] / 1000
+        # ):
+        #     self.logger.info(
+        #         f"{self.symbol}平仓时间早于预期结算时间, 可能是网络延迟导致的, 预期套利失败"
+        #     )
+        # else:
+        #     self.logger.info(f"{self.symbol}平仓时间晚于预期结算时间, 预期套利成功")
 
     def workflow(self):
         # 设置目标时间
