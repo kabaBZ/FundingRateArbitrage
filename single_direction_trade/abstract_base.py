@@ -49,7 +49,7 @@ class SingleDirectionTrade(object):
                 continue
             if (
                 target_time - server_time
-            ).total_seconds() <= self.client.get_average_response_time() / 1000000:
+            ).total_seconds() <= self.client.get_average_response_time() / 1000000 * 0.98:  # 0.98留余量，不然太极限 
                 print(f"等待结束，服务器时间：{server_time}")
                 break
             # 计算等待时间
